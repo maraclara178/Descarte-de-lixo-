@@ -1,0 +1,1783 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroDescarta — Mapeamento de Coleta | Pedras de Fogo/PB</title>
+<meta name="description" content="Plataforma colaborativa para mapear a necessidade de coleta de resíduos nas zonas rurais de Pedras de Fogo, Paraíba.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<!-- Leaflet CSS com fallback -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';">
+
+<!-- Aplica tema antes do paint (evita flash) -->
+<script>
+(function () {
+    try {
+        var saved = localStorage.getItem('agroDescartaTheme');
+        var theme = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.setAttribute('data-theme', theme);
+    } catch (e) {}
+})();
+</script>
+
+<style>
+/* ============================================================
+   TEMA ESCURO / CLARO
+   ============================================================ */
+:root, [data-theme="dark"] {
+    --nav-height: 72px;
+    --bg-void: #0a0f0a;
+    --bg-primary: #0f1410;
+    --bg-card: #161c17;
+    --bg-elevated: #1e2620;
+    --bg-hover: #263028;
+    --border-color: #2a352c;
+    --border-light: #3a4a3e;
+    --text-primary: #e8f0e8;
+    --text-secondary: #a8b8aa;
+    --text-muted: #6e8072;
+    --green-deep: #1b3a1e;
+    --green-primary: #2e7d32;
+    --green-light: #4caf50;
+    --green-accent: #66bb6a;
+    --green-glow: rgba(76, 175, 80, 0.15);
+    --mato: #3d6b3d;
+    --mato-escuro: #2a4a2a;
+    --mato-claro: #5a8f5a;
+    --danger: #ef5350;
+    --warning: #ffb74d;
+    --info: #64b5f6;
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.6);
+    --shadow-green: 0 0 30px rgba(76, 175, 80, 0.15);
+    --navbar-bg: rgba(15, 20, 16, 0.95);
+    --modal-overlay: rgba(0, 0, 0, 0.75);
+}
+[data-theme="light"] {
+    --nav-height: 72px;
+    --bg-void: #f5f8f5;
+    --bg-primary: #ffffff;
+    --bg-card: #ffffff;
+    --bg-elevated: #f0f4f0;
+    --bg-hover: #e8f0e8;
+    --border-color: #d8e0d8;
+    --border-light: #c0d0c0;
+    --text-primary: #142a16;
+    --text-secondary: #3e4f42;
+    --text-muted: #6f7f72;
+    --green-deep: #1b5e20;
+    --green-primary: #2e7d32;
+    --green-light: #2e7d32;
+    --green-accent: #388e3c;
+    --green-glow: rgba(46, 125, 50, 0.15);
+    --mato: #4caf50;
+    --mato-escuro: #2e7d32;
+    --mato-claro: #66bb6a;
+    --danger: #c62828;
+    --warning: #e65100;
+    --info: #1565c0;
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.15);
+    --shadow-green: 0 0 30px rgba(46, 125, 50, 0.1);
+    --navbar-bg: rgba(255, 255, 255, 0.95);
+    --modal-overlay: rgba(0, 0, 0, 0.5);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--nav-height) + 12px); font-size: 16px; }
+body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg-void);
+    color: var(--text-primary);
+    line-height: 1.6;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.4s ease, color 0.4s ease;
+}
+body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+        radial-gradient(ellipse at 10% 20%, rgba(45, 90, 45, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 90% 80%, rgba(30, 70, 30, 0.1) 0%, transparent 50%);
+    pointer-events: none; z-index: 0;
+}
+[data-theme="light"] body::before { opacity: 0.35; }
+
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font-family: inherit; border: none; background: none; font-size: 1rem; color: inherit; transition: all 0.25s ease; }
+:focus-visible { outline: 3px solid var(--green-light); outline-offset: 2px; border-radius: 6px; }
+
+input, select, textarea {
+    font-family: inherit; font-size: 0.95rem;
+    background: var(--bg-primary);
+    border: 2px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 12px 16px; border-radius: 8px;
+    outline: none; width: 100%;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.4s ease;
+}
+input:focus, select:focus, textarea:focus {
+    border-color: var(--green-light);
+    box-shadow: 0 0 0 4px var(--green-glow);
+}
+input::placeholder, textarea::placeholder { color: var(--text-muted); }
+select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%237a8a7a' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 40px;
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-void); }
+::-webkit-scrollbar-thumb { background: var(--mato-escuro); border-radius: 4px; }
+
+.container { max-width: 1240px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+.section-padding { padding: 80px 0; }
+.section-header { text-align: center; margin-bottom: 48px; }
+.section-title { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 12px; line-height: 1.2; }
+.section-subtitle { font-size: 1.05rem; color: var(--text-secondary); max-width: 640px; margin: 0 auto; line-height: 1.7; }
+
+.badge { display: inline-block; padding: 4px 12px; border-radius: 50px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 12px; }
+.badge-green { background: rgba(76,175,80,0.15); color: var(--green-light); border: 1px solid rgba(76,175,80,0.3); }
+.badge-blue  { background: rgba(100,181,246,0.15); color: var(--info); border: 1px solid rgba(100,181,246,0.3); }
+
+.btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 28px; border-radius: 12px;
+    font-weight: 600; font-size: 0.9rem;
+    border: 2px solid transparent;
+    white-space: nowrap; transition: all 0.25s ease;
+}
+.btn-primary { background: var(--green-primary); color: #fff; box-shadow: 0 4px 16px rgba(46,125,50,0.3); }
+.btn-primary:hover { background: var(--green-deep); transform: translateY(-2px); }
+.btn-secondary { background: transparent; color: var(--green-light); border-color: var(--green-light); }
+.btn-secondary:hover { background: var(--green-glow); transform: translateY(-2px); }
+.btn-outline { background: transparent; color: var(--text-primary); border-color: var(--border-color); }
+.btn-outline:hover { border-color: var(--green-light); color: var(--green-light); background: var(--green-glow); }
+.btn-sm { padding: 8px 16px; font-size: 0.8rem; border-radius: 8px; }
+.btn-lg { padding: 16px 32px; font-size: 1.05rem; }
+
+/* ============================================================
+   BANNER
+   ============================================================ */
+.banner {
+    position: relative; width: 100%; height: 320px; overflow: hidden;
+    background:
+        radial-gradient(ellipse at 30% 40%, rgba(76,175,80,0.25) 0%, transparent 60%),
+        radial-gradient(ellipse at 70% 60%, rgba(30,80,30,0.4) 0%, transparent 60%),
+        linear-gradient(135deg, var(--green-deep), var(--mato-escuro), var(--bg-void));
+    border-bottom: 1px solid var(--border-color);
+}
+.banner-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.5s ease; }
+.banner-image.visible { opacity: 1; }
+.banner-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.65) 100%); z-index: 1; }
+[data-theme="light"] .banner-overlay { background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.5) 100%); }
+.banner-content { position: relative; z-index: 2; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #fff; padding: 24px; }
+.banner-content h2 { font-size: 2.6rem; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 8px; text-shadow: 0 2px 12px rgba(0,0,0,0.6); }
+.banner-content p { font-size: 1.05rem; opacity: 0.95; text-shadow: 0 2px 8px rgba(0,0,0,0.6); max-width: 620px; }
+.banner-actions { position: absolute; top: 16px; right: 16px; z-index: 3; display: flex; gap: 8px; }
+.banner-btn {
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(8px); color: #fff;
+    border: 1px solid rgba(255,255,255,0.2); padding: 8px 14px;
+    border-radius: 50px; font-size: 0.78rem; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+}
+.banner-btn:hover { background: rgba(0,0,0,0.8); border-color: var(--green-light); }
+.banner-btn input[type="file"] { display: none; }
+
+/* ============================================================
+   NAVBAR
+   ============================================================ */
+.navbar {
+    position: sticky; top: 0; z-index: 1000;
+    background: var(--navbar-bg);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-color);
+    height: var(--nav-height);
+    transition: box-shadow 0.25s ease, background-color 0.4s ease;
+}
+.navbar.scrolled { box-shadow: var(--shadow-md); }
+.navbar .container { display: flex; align-items: center; justify-content: space-between; height: var(--nav-height); gap: 12px; }
+.navbar-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.15rem; color: var(--green-light); flex-shrink: 0; }
+.brand-icon {
+    width: 42px; height: 42px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--green-primary), var(--mato-escuro));
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 900; font-size: 1.05rem; flex-shrink: 0;
+    box-shadow: 0 2px 12px rgba(46,125,50,0.4);
+}
+.brand-slogan { font-size: 0.68rem; font-weight: 500; color: var(--text-muted); display: block; letter-spacing: 0.03em; }
+.nav-links { display: flex; align-items: center; gap: 4px; }
+.nav-links a { padding: 8px 14px; border-radius: 50px; font-weight: 500; font-size: 0.85rem; color: var(--text-secondary); }
+.nav-links a:hover, .nav-links a.active { background: var(--green-glow); color: var(--green-light); }
+.nav-cta { display: flex; gap: 8px; align-items: center; }
+.theme-toggle {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: var(--bg-elevated); border: 1px solid var(--border-color);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; color: var(--text-primary);
+    position: relative; overflow: hidden; flex-shrink: 0;
+}
+.theme-toggle:hover { border-color: var(--green-light); background: var(--green-glow); transform: rotate(20deg); }
+.theme-toggle .theme-icon { position: absolute; transition: all 0.4s ease; }
+.theme-toggle .theme-icon.sun { opacity: 0; transform: translateY(20px) rotate(90deg); }
+.theme-toggle .theme-icon.moon { opacity: 1; transform: translateY(0) rotate(0); }
+[data-theme="light"] .theme-toggle .theme-icon.sun { opacity: 1; transform: translateY(0) rotate(0); }
+[data-theme="light"] .theme-toggle .theme-icon.moon { opacity: 0; transform: translateY(-20px) rotate(-90deg); }
+
+.hamburger { display: none; flex-direction: column; gap: 5px; padding: 8px; border-radius: 8px; z-index: 1001; }
+.hamburger span { display: block; width: 24px; height: 2px; background: var(--text-primary); border-radius: 2px; transition: all 0.25s ease; }
+.hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+.hamburger.active span:nth-child(2) { opacity: 0; }
+.hamburger.active span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+
+.mobile-menu {
+    display: none; position: fixed; top: var(--nav-height); left: 0; right: 0; bottom: 0;
+    background: var(--bg-primary); z-index: 999; padding: 24px; overflow-y: auto;
+    opacity: 0; pointer-events: none; transition: all 0.25s ease;
+}
+.mobile-menu.open { display: block; opacity: 1; pointer-events: all; }
+.mobile-menu a { display: block; padding: 16px 20px; font-size: 1rem; font-weight: 600; color: var(--text-primary); border-radius: 12px; border-bottom: 1px solid var(--border-color); }
+.mobile-menu a:hover { background: var(--green-glow); color: var(--green-light); }
+
+/* ============================================================
+   HERO
+   ============================================================ */
+.hero {
+    min-height: 80vh; display: flex; align-items: center;
+    background: radial-gradient(ellipse at 20% 50%, rgba(30,80,30,0.2) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 30%, rgba(76,175,80,0.08) 0%, transparent 50%);
+    padding: 40px 0 60px; overflow: hidden;
+}
+[data-theme="light"] .hero {
+    background: radial-gradient(ellipse at 20% 50%, rgba(76,175,80,0.10) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 30%, rgba(46,125,50,0.05) 0%, transparent 50%);
+}
+.hero .container { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+.hero-tag { display: inline-block; background: var(--green-glow); color: var(--green-light); padding: 8px 18px; border-radius: 50px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 20px; border: 1px solid rgba(76,175,80,0.25); }
+.hero-title { font-size: 3.2rem; font-weight: 900; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 16px; }
+.hero-title .highlight { color: var(--green-light); }
+.hero-subtitle { font-size: 1.2rem; font-weight: 600; color: var(--green-accent); margin-bottom: 16px; line-height: 1.4; }
+.hero-description { font-size: 1rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 28px; max-width: 520px; }
+.hero-buttons { display: flex; flex-wrap: wrap; gap: 12px; }
+.hero-visual { display: flex; align-items: center; justify-content: center; }
+.hero-map-preview {
+    width: 100%; max-width: 480px; aspect-ratio: 1;
+    background: linear-gradient(135deg, var(--bg-card), var(--bg-elevated));
+    border-radius: 28px; border: 1px solid var(--border-light);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    box-shadow: var(--shadow-lg), var(--shadow-green);
+    position: relative; overflow: hidden;
+}
+.hero-map-preview .preview-dot { width: 14px; height: 14px; border-radius: 50%; position: absolute; }
+.preview-dot.dot-1 { top: 25%; left: 30%; background: var(--green-light); box-shadow: 0 0 20px rgba(76,175,80,0.6); }
+.preview-dot.dot-2 { top: 45%; left: 60%; background: var(--warning); box-shadow: 0 0 20px rgba(255,183,77,0.6); }
+.preview-dot.dot-3 { top: 65%; left: 35%; background: var(--danger); box-shadow: 0 0 20px rgba(239,83,80,0.6); }
+.hero-map-preview .preview-text { font-size: 2.2rem; font-weight: 900; color: var(--green-light); z-index: 1; }
+.hero-map-preview .preview-sub { font-size: 0.9rem; color: var(--text-muted); z-index: 1; }
+
+/* ============================================================
+   MAPA
+   ============================================================ */
+.map-main-section { background: var(--bg-primary); }
+
+.location-input-panel {
+    background: var(--bg-card); border-radius: 18px;
+    border: 1px solid var(--border-color); padding: 20px;
+    margin-bottom: 20px;
+    display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end;
+}
+.input-group { display: flex; flex-direction: column; gap: 4px; }
+.input-group label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.coord-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.location-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+
+.map-controls-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: center; }
+.map-wrapper {
+    border-radius: 18px; overflow: hidden;
+    box-shadow: var(--shadow-md), var(--shadow-green);
+    border: 1px solid var(--border-light);
+    position: relative; min-height: 320px;
+}
+#mainMap { height: 600px; width: 100%; min-height: 320px; background: var(--bg-void); z-index: 1; }
+
+#mapStatus {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px;
+    background: var(--bg-elevated); color: var(--text-secondary);
+    font-size: 0.95rem; z-index: 400; text-align: center; padding: 24px;
+}
+#mapStatus.hidden { display: none; }
+#mapStatus .spinner {
+    width: 34px; height: 34px;
+    border: 3px solid var(--border-light);
+    border-top-color: var(--green-light);
+    border-radius: 50%;
+    animation: mapSpin 0.8s linear infinite;
+}
+#mapStatus.error { color: var(--danger); }
+#mapStatus.error .spinner { display: none; }
+@keyframes mapSpin { to { transform: rotate(360deg); } }
+
+.map-legend {
+    position: absolute; bottom: 20px; right: 20px;
+    background: var(--navbar-bg); backdrop-filter: blur(8px);
+    padding: 14px 16px; border-radius: 12px;
+    box-shadow: var(--shadow-md); z-index: 500; font-size: 0.8rem;
+    border: 1px solid var(--border-light);
+}
+.map-legend h4 { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 8px; }
+.legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 0.78rem; color: var(--text-secondary); }
+.legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.legend-dot.low { background: #4caf50; }
+.legend-dot.medium { background: #ffb74d; }
+.legend-dot.high { background: #ef5350; }
+
+.gps-btn {
+    position: absolute; top: 20px; right: 20px; z-index: 500;
+    background: var(--navbar-bg); border: 1px solid var(--border-light);
+    border-radius: 50%; width: 48px; height: 48px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--shadow-md); font-size: 1.1rem; font-weight: 700;
+    color: var(--green-light);
+}
+.gps-btn:hover { background: var(--green-glow); transform: scale(1.05); }
+
+.selected-marker-indicator, .user-marker-indicator {
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; font-size: 1rem; font-weight: 700; border: 3px solid #fff;
+}
+.selected-marker-indicator { width: 32px; height: 32px; background: var(--green-primary); color: #fff; box-shadow: 0 0 20px rgba(46,125,50,0.6); }
+.user-marker-indicator { width: 30px; height: 30px; background: #1565c0; color: #fff; box-shadow: 0 0 20px rgba(21,101,192,0.6); }
+
+/* ============================================================
+   MODAIS
+   ============================================================ */
+.modal-overlay {
+    position: fixed; inset: 0; background: var(--modal-overlay);
+    z-index: 2000; display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.25s ease; padding: 20px;
+}
+.modal-overlay.active { opacity: 1; pointer-events: all; }
+.modal {
+    background: var(--bg-card); border-radius: 18px;
+    max-width: 620px; width: 100%; max-height: 85vh; overflow-y: auto;
+    padding: 28px; box-shadow: var(--shadow-lg), var(--shadow-green);
+    border: 1px solid var(--border-light);
+    transform: translateY(20px) scale(0.95);
+    transition: all 0.25s ease; position: relative;
+}
+.modal-overlay.active .modal { transform: translateY(0) scale(1); }
+.modal-close {
+    position: absolute; top: 14px; right: 14px;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--bg-elevated); border: 1px solid var(--border-color);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; color: var(--text-secondary); z-index: 10;
+}
+.modal-close:hover { background: var(--green-primary); color: #fff; border-color: var(--green-light); }
+.modal h3 { font-size: 1.3rem; font-weight: 700; margin-bottom: 16px; }
+.modal .form-group { margin-bottom: 14px; }
+.modal .form-group label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+.modal .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.modal .form-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+
+/* ============================================================
+   PAINEL
+   ============================================================ */
+.dashboard-section { background: var(--bg-primary); }
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+.stat-card {
+    background: var(--bg-card); padding: 20px; border-radius: 12px;
+    box-shadow: var(--shadow-sm); border: 1px solid var(--border-color);
+    text-align: center;
+}
+.stat-card:hover { box-shadow: var(--shadow-md), var(--shadow-green); transform: translateY(-2px); border-color: var(--green-light); }
+.stat-number { font-size: 2rem; font-weight: 800; color: var(--green-light); display: block; }
+.stat-number.blue { color: var(--info); }
+.stat-number.orange { color: var(--warning); }
+.stat-number.red { color: var(--danger); }
+.stat-label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.panel-card { background: var(--bg-card); border-radius: 18px; box-shadow: var(--shadow-sm); padding: 24px; border: 1px solid var(--border-color); }
+.panel-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.community-list { list-style: none; }
+.community-list li { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--border-color); font-size: 0.88rem; }
+.community-list li:last-child { border-bottom: none; }
+.community-name { font-weight: 600; }
+.community-count { font-weight: 700; padding: 4px 10px; border-radius: 50px; font-size: 0.75rem; }
+.count-low { background: rgba(76,175,80,0.15); color: var(--green-light); }
+.count-medium { background: rgba(255,183,77,0.15); color: #b87300; }
+.count-high { background: rgba(239,83,80,0.15); color: var(--danger); }
+[data-theme="dark"] .count-medium { color: var(--warning); }
+
+.alert-banner { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: 12px; margin-bottom: 12px; font-size: 0.88rem; font-weight: 600; border-left: 4px solid; }
+.alert-banner.alert-high { background: rgba(239,83,80,0.1); border-left-color: var(--danger); color: var(--danger); }
+.alert-banner.alert-medium { background: rgba(255,183,77,0.1); border-left-color: var(--warning); color: #a86400; }
+[data-theme="dark"] .alert-banner.alert-medium { color: var(--warning); }
+.alert-banner.alert-info { background: rgba(100,181,246,0.1); border-left-color: var(--info); color: var(--info); }
+
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 520px; }
+.data-table th { padding: 8px; text-align: left; background: var(--green-glow); color: var(--green-light); font-weight: 700; }
+.data-table td { padding: 8px; border-bottom: 1px solid var(--border-color); }
+.data-table tbody tr:hover { background: var(--bg-hover); }
+
+/* ============================================================
+   AUTENTICAÇÃO
+   ============================================================ */
+.auth-section { background: var(--bg-primary); }
+.auth-container { max-width: 460px; margin: 0 auto; }
+.auth-tabs { display: flex; gap: 4px; margin-bottom: 24px; background: var(--bg-elevated); border-radius: 12px; padding: 4px; }
+.auth-tab { flex: 1; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-muted); text-align: center; }
+.auth-tab.active { background: var(--green-primary); color: #fff; box-shadow: 0 2px 8px rgba(46,125,50,0.3); }
+.auth-tab:hover:not(.active) { color: var(--text-secondary); background: var(--bg-hover); }
+.auth-form { display: none; }
+.auth-form.active { display: block; }
+.auth-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--text-muted); font-size: 0.8rem; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
+.auth-anon-btn { width: 100%; padding: 14px; border-radius: 12px; background: transparent; border: 2px dashed var(--border-light); color: var(--text-secondary); font-weight: 600; font-size: 0.9rem; }
+.auth-anon-btn:hover { border-color: var(--green-light); color: var(--green-light); background: var(--green-glow); }
+.field-label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+
+/* ============================================================
+   SOBRE / FOOTER
+   ============================================================ */
+.about-section { background: var(--bg-primary); }
+.about-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.about-card { background: var(--bg-card); border-radius: 18px; padding: 28px; text-align: center; border: 1px solid var(--border-color); }
+.about-card:hover { box-shadow: var(--shadow-md), var(--shadow-green); transform: translateY(-4px); border-color: var(--green-light); }
+.about-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 52px; height: 52px; border-radius: 50%;
+    font-size: 1.4rem; font-weight: 800; margin-bottom: 14px;
+    background: var(--green-glow); color: var(--green-light);
+    border: 1px solid rgba(76,175,80,0.3);
+}
+.about-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; }
+.about-card p { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; }
+
+.footer { background: var(--bg-void); padding: 50px 0 20px; border-top: 1px solid var(--border-color); }
+.footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 30px; margin-bottom: 30px; }
+.footer-brand { font-size: 1.2rem; font-weight: 800; color: var(--green-light); margin-bottom: 10px; }
+.footer-description { font-size: 0.85rem; line-height: 1.6; color: var(--text-muted); max-width: 300px; }
+.footer h5 { font-size: 0.85rem; font-weight: 700; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+.footer-links a { display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; }
+.footer-links a:hover { color: var(--green-light); }
+.footer-bottom { border-top: 1px solid var(--border-color); padding-top: 20px; text-align: center; font-size: 0.75rem; color: var(--text-muted); }
+
+.user-badge {
+    display: none; align-items: center; gap: 8px; padding: 6px 6px 6px 12px;
+    background: var(--bg-elevated); border-radius: 50px;
+    font-size: 0.8rem; color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+.user-badge.visible { display: flex; }
+.user-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green-light); flex-shrink: 0; }
+.user-dot.anon { background: var(--warning); }
+.badge-logout {
+    padding: 4px 10px; border-radius: 50px; font-size: 0.7rem; font-weight: 700;
+    background: rgba(239,83,80,0.15); color: var(--danger); border: 1px solid rgba(239,83,80,0.3);
+}
+.badge-logout:hover { background: var(--danger); color: #fff; }
+.badge-edit {
+    padding: 4px 10px; border-radius: 50px; font-size: 0.7rem; font-weight: 700;
+    background: var(--green-glow); color: var(--green-light); border: 1px solid rgba(76,175,80,0.3);
+}
+.badge-edit:hover { background: var(--green-primary); color: #fff; }
+
+/* ============================================================
+   RESPONSIVO
+   ============================================================ */
+@media (max-width: 1024px) {
+    .hero .container { grid-template-columns: 1fr; text-align: center; }
+    .hero-description { margin-left: auto; margin-right: auto; }
+    .hero-buttons { justify-content: center; }
+    .hero-visual { max-width: 400px; margin: 0 auto; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .about-grid { grid-template-columns: 1fr 1fr; }
+    .panel-grid { grid-template-columns: 1fr; }
+    .footer-grid { grid-template-columns: 1fr 1fr; }
+    .location-input-panel { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+    .section-padding { padding: 50px 0; }
+    .section-title { font-size: 1.8rem; }
+    .hero-title { font-size: 2.2rem; }
+    .hero-subtitle { font-size: 1rem; }
+    .nav-links { display: none; }
+    .hamburger { display: flex; }
+    .stats-row { grid-template-columns: 1fr; }
+    .about-grid { grid-template-columns: 1fr; }
+    .modal .form-row { grid-template-columns: 1fr; }
+    #mainMap { height: 450px; }
+    .footer-grid { grid-template-columns: 1fr; gap: 20px; }
+    .btn { width: 100%; justify-content: center; }
+    .hero-buttons { flex-direction: column; }
+    .banner { height: 220px; }
+    .banner-content h2 { font-size: 1.6rem; }
+    .banner-content p { font-size: 0.9rem; }
+    .coord-row { grid-template-columns: 1fr; }
+    .nav-cta .btn { width: auto; }
+}
+@media (max-width: 480px) {
+    .container { padding: 0 16px; }
+    .hero-title { font-size: 1.8rem; }
+    .section-title { font-size: 1.5rem; }
+    .modal { padding: 20px; }
+}
+
+/* Leaflet popups adaptados ao tema */
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+    background: var(--bg-card); color: var(--text-primary);
+    border: 1px solid var(--border-color); box-shadow: var(--shadow-lg);
+}
+.leaflet-popup-content { font-family: 'Inter', sans-serif; color: var(--text-primary); margin: 12px 16px; }
+.leaflet-popup-close-button { color: var(--text-secondary) !important; }
+.leaflet-control-zoom a { background: var(--bg-card) !important; color: var(--text-primary) !important; border-color: var(--border-color) !important; }
+.leaflet-control-attribution { background: var(--navbar-bg) !important; color: var(--text-muted) !important; }
+.leaflet-control-attribution a { color: var(--green-light) !important; }
+</style>
+</head>
+<body>
+
+<!-- ========== BANNER ========== -->
+<div class="banner" id="banner">
+    <img class="banner-image" id="bannerImage" alt="Banner personalizado">
+    <div class="banner-overlay"></div>
+    <div class="banner-content">
+        <h2 id="bannerTitle">AgroDescarta</h2>
+        <p id="bannerSubtitle">Mapeando necessidades, melhorando a coleta e protegendo o meio ambiente.</p>
+    </div>
+    <div class="banner-actions">
+        <label class="banner-btn" title="Alterar imagem do banner">
+            <input type="file" id="bannerUpload" accept="image/*">
+            <span>✨</span> Alterar banner
+        </label>
+        <button class="banner-btn" id="bannerResetBtn" title="Restaurar banner padrão">Restaurar</button>
+    </div>
+</div>
+
+<!-- ========== NAVBAR ========== -->
+<nav class="navbar" id="navbar">
+    <div class="container">
+        <a href="#inicio" class="navbar-brand">
+            <span class="brand-icon">AD</span>
+            <div>
+                AgroDescarta
+                <span class="brand-slogan">Pedras de Fogo - PB</span>
+            </div>
+        </a>
+        <div class="nav-links">
+            <a href="#inicio" class="active">Início</a>
+            <a href="#mapa">Mapa</a>
+            <a href="#painel">Painel</a>
+            <a href="#auth">Entrar</a>
+            <a href="#sobre">Saiba Mais</a>
+        </div>
+        <div class="nav-cta">
+            <div class="user-badge" id="userBadge">
+                <span class="user-dot" id="userDot"></span>
+                <span id="userLabel">Anônimo</span>
+                <button class="badge-edit" onclick="openUserReportModal()" title="Editar meu registro">Editar</button>
+                <button class="badge-logout" onclick="handleLogout()">Sair</button>
+            </div>
+            <button class="theme-toggle" id="themeToggle" title="Alternar tema" aria-label="Alternar tema">
+                <span class="theme-icon moon">☾</span>
+                <span class="theme-icon sun">☀</span>
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="openRegisterModal()">Indicar necessidade</button>
+        </div>
+        <button class="hamburger" id="hamburger" aria-label="Menu" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+    </div>
+</nav>
+<div class="mobile-menu" id="mobileMenu">
+    <a href="#inicio" onclick="closeMobileMenu()">Início</a>
+    <a href="#mapa" onclick="closeMobileMenu()">Mapa</a>
+    <a href="#painel" onclick="closeMobileMenu()">Painel</a>
+    <a href="#auth" onclick="closeMobileMenu()">Entrar</a>
+    <a href="#sobre" onclick="closeMobileMenu()">Saiba Mais</a>
+    <button class="btn btn-primary btn-sm" style="width:100%; margin-top:12px;" onclick="closeMobileMenu(); openRegisterModal();">Indicar necessidade</button>
+</div>
+
+<!-- ========== HERO ========== -->
+<section class="hero" id="inicio">
+    <div class="container">
+        <div>
+            <span class="hero-tag">Comunidade + Tecnologia + Sustentabilidade</span>
+            <h1 class="hero-title">Agro<span class="highlight">Descarta</span></h1>
+            <p class="hero-subtitle">Mapeando necessidades, melhorando a coleta e protegendo o meio ambiente.</p>
+            <p class="hero-description">
+                O AgroDescarta é uma plataforma colaborativa criada para identificar e mapear a necessidade de coleta de resíduos nas zonas rurais de Pedras de Fogo. Por meio da participação da população, o sistema registra demandas, identifica regiões prioritárias e transforma informações da comunidade em dados que podem contribuir para uma melhor gestão dos resíduos.
+            </p>
+            <div class="hero-buttons">
+                <button class="btn btn-primary btn-lg" onclick="openRegisterModal()">Indicar necessidade de coleta</button>
+                <a href="#mapa" class="btn btn-secondary btn-lg">Ver mapa</a>
+                <a href="#painel" class="btn btn-secondary btn-lg">Consultar demandas</a>
+                <a href="#sobre" class="btn btn-outline btn-lg">Saiba mais</a>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="hero-map-preview">
+                <span class="preview-dot dot-1"></span>
+                <span class="preview-dot dot-2"></span>
+                <span class="preview-dot dot-3"></span>
+                <span class="preview-text">Mapa</span>
+                <span class="preview-sub">de necessidades</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== MAPA ========== -->
+<section class="section-padding map-main-section" id="mapa">
+    <div class="container">
+        <div class="section-header">
+            <span class="badge badge-green">Mapa Colaborativo</span>
+            <h2 class="section-title">Indique onde falta coleta</h2>
+            <p class="section-subtitle">Clique no mapa, insira coordenadas ou busque um endereço para marcar um local que necessita de coleta.</p>
+        </div>
+
+        <div class="location-input-panel">
+            <div class="input-group">
+                <label for="addressSearch">Buscar por endereço / comunidade</label>
+                <input type="text" id="addressSearch" placeholder="Ex: Riacho Fundo, Pedras de Fogo - PB">
+            </div>
+            <div class="input-group">
+                <label>Coordenadas (latitude, longitude)</label>
+                <div class="coord-row">
+                    <input type="number" id="latInput" step="0.000001" placeholder="Latitude">
+                    <input type="number" id="lngInput" step="0.000001" placeholder="Longitude">
+                </div>
+            </div>
+            <div class="location-actions">
+                <button class="btn btn-primary btn-sm" onclick="applyManualCoordinates()">Ir para local</button>
+                <button class="btn btn-outline btn-sm" onclick="useGPSToLocate()">Usar GPS</button>
+            </div>
+        </div>
+
+        <div class="map-controls-bar">
+            <span style="font-size:0.85rem; color:var(--text-muted);">
+                Clique no mapa para selecionar o local. As coordenadas aparecerão no painel acima.
+            </span>
+        </div>
+
+        <div class="map-wrapper">
+            <div id="mapStatus">
+                <div class="spinner" aria-hidden="true"></div>
+                <div>Carregando mapa…</div>
+            </div>
+            <div id="mainMap"></div>
+            <button class="gps-btn" onclick="useGPSToLocate()" title="Usar minha localização">◎</button>
+            <div class="map-legend">
+                <h4>Nível de demanda</h4>
+                <div class="legend-item"><span class="legend-dot low"></span> Baixa (1-2 registros)</div>
+                <div class="legend-item"><span class="legend-dot medium"></span> Média (3-5 registros)</div>
+                <div class="legend-item"><span class="legend-dot high"></span> Alta (6+ registros)</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== PAINEL ========== -->
+<section class="section-padding dashboard-section" id="painel">
+    <div class="container">
+        <div class="section-header">
+            <span class="badge badge-blue">Painel de Dados</span>
+            <h2 class="section-title">Monitoramento de demandas</h2>
+            <p class="section-subtitle">Dados gerados a partir dos registros da comunidade para auxiliar no planejamento da coleta.</p>
+        </div>
+
+        <div class="stats-row">
+            <div class="stat-card"><span class="stat-number" id="statTotal">0</span><span class="stat-label">Solicitações totais</span></div>
+            <div class="stat-card"><span class="stat-number blue" id="statCommunities">0</span><span class="stat-label">Comunidades mapeadas</span></div>
+            <div class="stat-card"><span class="stat-number orange" id="statMediumDemand">0</span><span class="stat-label">Média demanda</span></div>
+            <div class="stat-card"><span class="stat-number red" id="statHighDemand">0</span><span class="stat-label">Alta demanda</span></div>
+        </div>
+
+        <div id="alertsContainer" style="margin-bottom: 28px;"></div>
+
+        <div class="panel-grid">
+            <div class="panel-card">
+                <h3>Comunidades com maior demanda</h3>
+                <ul class="community-list" id="communityList"><li style="text-align:center; color:var(--text-muted);">Carregando...</li></ul>
+            </div>
+            <div class="panel-card">
+                <h3>Tipos de resíduos mais indicados</h3>
+                <ul class="community-list" id="wasteTypeList"><li style="text-align:center; color:var(--text-muted);">Carregando...</li></ul>
+            </div>
+        </div>
+
+        <div class="panel-card" style="margin-top:24px;">
+            <h3>Histórico de solicitações recentes (mapa)</h3>
+            <div id="recentRequests" style="overflow-x:auto;"><p style="color:var(--text-muted);">Carregando histórico...</p></div>
+        </div>
+
+        <div class="panel-grid" style="margin-top:24px;">
+            <div class="panel-card">
+                <h3>👥 Pessoas que acessaram</h3>
+                <div id="loginLog" style="overflow-x:auto;">
+                    <p style="color:var(--text-muted);">Carregando…</p>
+                </div>
+            </div>
+            <div class="panel-card">
+                <h3>📝 Registros pós-login</h3>
+                <div id="userReports" style="overflow-x:auto;">
+                    <p style="color:var(--text-muted);">Carregando…</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== AUTENTICAÇÃO ========== -->
+<section class="section-padding auth-section" id="auth">
+    <div class="container">
+        <div class="section-header">
+            <span class="badge badge-green">Acesso</span>
+            <h2 class="section-title">Entre ou use como anônimo</h2>
+            <p class="section-subtitle">Crie uma conta para acompanhar seus registros ou acesse anonimamente para contribuir rapidamente.</p>
+        </div>
+        <div class="auth-container">
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchAuthTab('login', this)">Entrar</button>
+                <button class="auth-tab" onclick="switchAuthTab('signup', this)">Criar conta</button>
+            </div>
+
+            <form class="auth-form active" id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label class="field-label" for="loginEmail">E-mail</label>
+                    <input type="email" id="loginEmail" required placeholder="seu@email.com">
+                </div>
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label class="field-label" for="loginPassword">Senha</label>
+                    <input type="password" id="loginPassword" required placeholder="Sua senha" minlength="6">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Entrar</button>
+            </form>
+
+            <form class="auth-form" id="signupForm" onsubmit="handleSignup(event)">
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label class="field-label" for="signupName">Nome</label>
+                    <input type="text" id="signupName" required placeholder="Seu nome">
+                </div>
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label class="field-label" for="signupEmail">E-mail</label>
+                    <input type="email" id="signupEmail" required placeholder="seu@email.com">
+                </div>
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label class="field-label" for="signupPassword">Senha</label>
+                    <input type="password" id="signupPassword" required placeholder="Mínimo 6 caracteres" minlength="6">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Criar conta</button>
+            </form>
+
+            <div class="auth-divider">ou</div>
+            <button class="auth-anon-btn" onclick="handleAnonymousLogin()">Entrar anonimamente</button>
+            <p style="font-size:0.75rem; color:var(--text-muted); text-align:center; margin-top:8px;">
+                O acesso anônimo permite registrar necessidades sem criar conta.
+            </p>
+            <div id="authStatus" style="margin-top:16px; text-align:center; font-size:0.85rem;"></div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== SOBRE ========== -->
+<section class="section-padding about-section" id="sobre">
+    <div class="container">
+        <div class="section-header">
+            <span class="badge badge-green">Saiba Mais</span>
+            <h2 class="section-title">Como o AgroDescarta funciona</h2>
+            <p class="section-subtitle">Uma plataforma simples e colaborativa para melhorar a coleta de resíduos na zona rural.</p>
+        </div>
+        <div class="about-grid">
+            <div class="about-card">
+                <span class="about-icon">1</span>
+                <h3>Indique no mapa</h3>
+                <p>Toque no local, insira coordenadas ou busque um endereço onde existe necessidade de coleta e registre informações sobre o tipo e a quantidade de resíduos.</p>
+            </div>
+            <div class="about-card">
+                <span class="about-icon">2</span>
+                <h3>Demanda coletiva</h3>
+                <p>Quando vários moradores da mesma região registram pedidos, o sistema identifica maior prioridade de coleta.</p>
+            </div>
+            <div class="about-card">
+                <span class="about-icon">3</span>
+                <h3>Dados para gestão</h3>
+                <p>As informações geradas podem auxiliar a gestão pública no planejamento de rotas e ampliação da coleta.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== FOOTER ========== -->
+<footer class="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <div>
+                <div class="footer-brand">AgroDescarta</div>
+                <p class="footer-description">Plataforma colaborativa para mapear a necessidade de coleta de resíduos nas zonas rurais de Pedras de Fogo, Paraíba.</p>
+            </div>
+            <div>
+                <h5>Navegação</h5>
+                <div class="footer-links">
+                    <a href="#inicio">Início</a>
+                    <a href="#mapa">Mapa</a>
+                    <a href="#painel">Painel</a>
+                    <a href="#auth">Entrar</a>
+                    <a href="#sobre">Saiba Mais</a>
+                </div>
+            </div>
+            <div>
+                <h5>Contato</h5>
+                <div class="footer-links">
+                    <a href="#">contato@agrodescarta.com.br</a>
+                    <a href="#">Pedras de Fogo - PB</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2025 AgroDescarta - Pedras de Fogo, Paraíba. Protótipo para fins de demonstração.</p>
+        </div>
+    </div>
+</footer>
+
+<!-- ========== MODAL: REGISTRO DE NECESSIDADE (MAPA) ========== -->
+<div class="modal-overlay" id="registerModal">
+    <div class="modal">
+        <button class="modal-close" onclick="closeRegisterModal()" aria-label="Fechar">×</button>
+        <h3>Indicar necessidade de coleta</h3>
+        <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:16px;">
+            <strong>Local selecionado:</strong> <span id="selectedCoords">Nenhum local selecionado</span>
+        </p>
+        <form id="registerForm" onsubmit="handleRegisterSubmit(event)">
+            <div class="form-group">
+                <label for="communityName">Nome da comunidade / localidade *</label>
+                <input type="text" id="communityName" required placeholder="Ex: Riacho Fundo, Sítio Cachoeira..." list="communitiesList">
+                <datalist id="communitiesList">
+                    <option value="Una de São José"><option value="Campo Verde"><option value="Santa Terezinha">
+                    <option value="Bela Rosa"><option value="Nova Tatiana"><option value="Jangada">
+                    <option value="Covoada"><option value="Itabatinga"><option value="Mata de Vara">
+                    <option value="Engenho Novo"><option value="Nova Aurora"><option value="Cabana">
+                    <option value="Bulhões"><option value="Riacho D'água"><option value="Taquari">
+                    <option value="Canaã"><option value="Gume"><option value="Santa Emília">
+                    <option value="Alagadiço"><option value="Imbiribeira"><option value="Assentamento Wanderley Caixe">
+                </datalist>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="wasteType">Tipo de resíduo *</label>
+                    <select id="wasteType" required>
+                        <option value="" disabled selected>Selecione</option>
+                        <option>Resíduos orgânicos</option>
+                        <option>Resíduos recicláveis</option>
+                        <option>Plásticos</option>
+                        <option>Papel</option>
+                        <option>Vidro</option>
+                        <option>Metal</option>
+                        <option>Resíduos domésticos</option>
+                        <option>Resíduos agrícolas não perigosos</option>
+                        <option>Resíduos misturados</option>
+                        <option>Outros</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Quantidade aproximada *</label>
+                    <select id="quantity" required>
+                        <option value="" disabled selected>Selecione</option>
+                        <option>Pouco (até 1 saco)</option>
+                        <option>Médio (2 a 5 sacos)</option>
+                        <option>Muito (mais de 5 sacos)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="description">Descrição da situação (opcional)</label>
+                <textarea id="description" rows="3" placeholder="Ex: Lixo acumulado há 2 semanas, o caminhão não passa..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Registrar necessidade</button>
+                <button type="button" class="btn btn-outline" onclick="closeRegisterModal()">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ========== MODAL: REGISTRO PÓS-LOGIN ========== -->
+<div class="modal-overlay" id="userReportModal">
+    <div class="modal">
+        <button class="modal-close" onclick="closeUserReportModal()" aria-label="Fechar">×</button>
+        <h3>Registro de acesso</h3>
+        <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:16px;">
+            Olá <strong id="userReportGreeting">visitante</strong>! Precisamos de algumas informações sobre a sua região.
+        </p>
+        <form id="userReportForm" onsubmit="handleUserReportSubmit(event)">
+            <div class="form-group">
+                <label for="urSitio">Nome do sítio ou bairro *</label>
+                <input type="text" id="urSitio" required placeholder="Ex: Sítio Cachoeira, Bairro Centro..." list="sitiosList">
+                <datalist id="sitiosList">
+                    <option value="Una de São José"><option value="Campo Verde"><option value="Santa Terezinha">
+                    <option value="Bela Rosa"><option value="Nova Tatiana"><option value="Jangada">
+                    <option value="Covoada"><option value="Itabatinga"><option value="Mata de Vara">
+                    <option value="Engenho Novo"><option value="Nova Aurora"><option value="Cabana">
+                    <option value="Bulhões"><option value="Riacho D'água"><option value="Taquari">
+                    <option value="Canaã"><option value="Gume"><option value="Santa Emília">
+                    <option value="Alagadiço"><option value="Imbiribeira"><option value="Assentamento Wanderley Caixe">
+                    <option value="Centro"><option value="Bairro Novo"><option value="Boa Vista">
+                </datalist>
+            </div>
+            <div class="form-group">
+                <label for="urMotivo">Motivo da solicitação *</label>
+                <textarea id="urMotivo" required rows="3" maxlength="500"
+                    placeholder="Ex: O caminhão não passa há meses e o lixo está acumulando na beira da estrada..."></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="urTipoLixo">Tipo de lixo *</label>
+                    <select id="urTipoLixo" required>
+                        <option value="" disabled selected>Selecione</option>
+                        <option>Resíduos orgânicos</option>
+                        <option>Resíduos recicláveis</option>
+                        <option>Plásticos</option>
+                        <option>Papel</option>
+                        <option>Vidro</option>
+                        <option>Metal</option>
+                        <option>Resíduos domésticos</option>
+                        <option>Resíduos agrícolas não perigosos</option>
+                        <option>Resíduos misturados</option>
+                        <option>Outros</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="urTempo">Há quanto tempo está largado? *</label>
+                    <select id="urTempo" required>
+                        <option value="" disabled selected>Selecione</option>
+                        <option>Menos de 1 semana</option>
+                        <option>1 a 2 semanas</option>
+                        <option>2 a 4 semanas</option>
+                        <option>1 a 3 meses</option>
+                        <option>Mais de 3 meses</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Salvar registro</button>
+                <button type="button" class="btn btn-outline" onclick="closeUserReportModal()">Pular por agora</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ========== Leaflet JS com 3 fallbacks ========== -->
+<script>
+(function loadLeaflet() {
+    const urls = [
+        'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+        'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js'
+    ];
+    let i = 0;
+    function next() {
+        if (i >= urls.length) {
+            window.__leafletFailed = true;
+            document.dispatchEvent(new Event('leaflet:failed'));
+            return;
+        }
+        const s = document.createElement('script');
+        s.src = urls[i++];
+        s.onload  = () => { window.__leafletReady = true; document.dispatchEvent(new Event('leaflet:ready')); };
+        s.onerror = next;
+        document.head.appendChild(s);
+    }
+    next();
+})();
+</script>
+
+<!-- ========== SCRIPT PRINCIPAL ========== -->
+<script>
+/* ============================================================
+   CONSTANTES E UTILITÁRIOS
+   ============================================================ */
+const K_USERS    = 'ad_users';
+const K_SESSION  = 'ad_session';
+const K_REQUESTS = 'ad_requests';
+const K_LOGINS   = 'ad_login_log';
+const K_REPORTS  = 'ad_user_reports';
+const K_THEME    = 'agroDescartaTheme';
+const K_BANNER   = 'agroDescartaBanner';
+
+const PEDRAS_DE_FOGO_CENTER = [-7.4017, -35.1147];
+const CLUSTER_RADIUS_METERS = 500;
+
+let currentUser = null;
+let registrations = [];
+let map = null;
+let selectedLatLng = null;
+let userMarker = null;
+let selectedMarker = null;
+let tileLayer = null;
+const clusterMarkers = [];
+
+const $  = (s, c = document) => c.querySelector(s);
+const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
+
+function escapeHtml(v) {
+    return String(v ?? '').replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+}
+
+/* ============================================================
+   ARMAZENAMENTO
+   ============================================================ */
+const Store = {
+    getUsers:    () => JSON.parse(localStorage.getItem(K_USERS) || '[]'),
+    saveUsers:   (u) => localStorage.setItem(K_USERS, JSON.stringify(u)),
+    getSession:  () => JSON.parse(localStorage.getItem(K_SESSION) || 'null'),
+    saveSession: (s) => localStorage.setItem(K_SESSION, JSON.stringify(s)),
+    clearSession:() => localStorage.removeItem(K_SESSION),
+    getRequests: () => {
+        const raw = localStorage.getItem(K_REQUESTS);
+        if (raw === null) {
+            const seed = seedRequests();
+            localStorage.setItem(K_REQUESTS, JSON.stringify(seed));
+            return seed;
+        }
+        try { return JSON.parse(raw) || []; } catch { return []; }
+    },
+    saveRequests: (r) => localStorage.setItem(K_REQUESTS, JSON.stringify(r)),
+};
+
+const getLogins    = () => { try { return JSON.parse(localStorage.getItem(K_LOGINS)  || '[]'); } catch { return []; } };
+const saveLogins   = (l) => localStorage.setItem(K_LOGINS, JSON.stringify(l));
+const getReports   = () => { try { return JSON.parse(localStorage.getItem(K_REPORTS) || '[]'); } catch { return []; } };
+const saveReports  = (r) => localStorage.setItem(K_REPORTS, JSON.stringify(r));
+
+function seedRequests() {
+    const base = [
+        { community: 'Una de São José', lat: -7.3950, lng: -35.1200, count: 7 },
+        { community: 'Campo Verde',     lat: -7.4105, lng: -35.1052, count: 4 },
+        { community: 'Santa Terezinha', lat: -7.3880, lng: -35.1320, count: 3 },
+        { community: 'Nova Aurora',     lat: -7.4200, lng: -35.0900, count: 2 },
+        { community: 'Jangada',         lat: -7.3800, lng: -35.1000, count: 1 },
+        { community: 'Covoada',         lat: -7.4300, lng: -35.1300, count: 6 },
+    ];
+    const types = ['Resíduos orgânicos','Resíduos recicláveis','Plásticos','Papel','Vidro','Metal','Resíduos domésticos'];
+    const qty   = ['Pouco (até 1 saco)','Médio (2 a 5 sacos)','Muito (mais de 5 sacos)'];
+    const arr = [];
+    let id = 1;
+    base.forEach(b => {
+        for (let i = 0; i < b.count; i++) {
+            arr.push({
+                id: 'seed-' + (id++),
+                user_id: 'seed',
+                is_anonymous: true,
+                community_name: b.community,
+                latitude:  b.lat + (Math.random() - 0.5) * 0.0035,
+                longitude: b.lng + (Math.random() - 0.5) * 0.0035,
+                waste_type: types[Math.floor(Math.random() * types.length)],
+                quantity:   qty[Math.floor(Math.random() * qty.length)],
+                description: null,
+                created_at: new Date(Date.now() - Math.random() * 30 * 24 * 3600 * 1000).toISOString(),
+            });
+        }
+    });
+    return arr;
+}
+
+/* ============================================================
+   TEMA
+   ============================================================ */
+const htmlEl = document.documentElement;
+
+function applyTheme(theme) {
+    htmlEl.setAttribute('data-theme', theme);
+    try { localStorage.setItem(K_THEME, theme); } catch {}
+    if (map && tileLayer) updateMapTiles(theme);
+}
+document.getElementById('themeToggle').addEventListener('click', () => {
+    applyTheme(htmlEl.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+});
+
+function updateMapTiles(theme) {
+    if (!map) return;
+    if (tileLayer) map.removeLayer(tileLayer);
+    const url = theme === 'light'
+        ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    tileLayer = L.tileLayer(url, {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19,
+    }).addTo(map);
+}
+
+/* ============================================================
+   BANNER
+   ============================================================ */
+const bannerUpload   = $('#bannerUpload');
+const bannerImage    = $('#bannerImage');
+const bannerResetBtn = $('#bannerResetBtn');
+
+(function loadBanner() {
+    try {
+        const saved = localStorage.getItem(K_BANNER);
+        if (saved) { bannerImage.src = saved; bannerImage.classList.add('visible'); }
+    } catch {}
+})();
+
+bannerUpload.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return alert('Escolha um arquivo de imagem.');
+    if (file.size > 5 * 1024 * 1024) return alert('Imagem muito grande. Máx: 5MB.');
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        bannerImage.src = ev.target.result;
+        bannerImage.classList.add('visible');
+        try { localStorage.setItem(K_BANNER, ev.target.result); }
+        catch { alert('Imagem muito grande para salvar. Reduza o tamanho.'); }
+    };
+    reader.readAsDataURL(file);
+});
+
+bannerResetBtn.addEventListener('click', () => {
+    if (!confirm('Deseja restaurar o banner padrão?')) return;
+    bannerImage.src = '';
+    bannerImage.classList.remove('visible');
+    try { localStorage.removeItem(K_BANNER); } catch {}
+    bannerUpload.value = '';
+});
+
+/* ============================================================
+   NAVEGAÇÃO
+   ============================================================ */
+const hamburger  = $('#hamburger');
+const mobileMenu = $('#mobileMenu');
+const navbar     = $('#navbar');
+
+hamburger.addEventListener('click', () => {
+    const open = mobileMenu.classList.toggle('open');
+    hamburger.classList.toggle('active', open);
+    hamburger.setAttribute('aria-expanded', open);
+});
+function closeMobileMenu() {
+    mobileMenu.classList.remove('open');
+    hamburger.classList.remove('active');
+    hamburger.setAttribute('aria-expanded', 'false');
+}
+window.addEventListener('scroll', () => {
+    navbar.classList.toggle('scrolled', window.scrollY > 50);
+    updateActiveNav();
+});
+function updateActiveNav() {
+    const sections = $$('section[id], .hero[id]');
+    let current = '';
+    sections.forEach(s => { if (window.scrollY >= s.offsetTop - 120) current = s.id; });
+    $$('.nav-links a').forEach(a => {
+        a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+}
+
+/* ============================================================
+   AUTENTICAÇÃO
+   ============================================================ */
+const encodePass = (p) => { try { return btoa(unescape(encodeURIComponent(p))); } catch { return p; } };
+
+function loadSession() {
+    currentUser = Store.getSession();
+    updateUserBadge();
+}
+
+function updateUserBadge() {
+    const badge = $('#userBadge');
+    const label = $('#userLabel');
+    const dot   = $('#userDot');
+    if (currentUser) {
+        badge.classList.add('visible');
+        if (currentUser.isAnonymous) {
+            label.textContent = 'Anônimo';
+            dot.className = 'user-dot anon';
+        } else {
+            label.textContent = currentUser.name || (currentUser.email?.split('@')[0]) || 'Usuário';
+            dot.className = 'user-dot';
+        }
+    } else {
+        badge.classList.remove('visible');
+    }
+}
+
+function logLogin(user, type) {
+    const list = getLogins();
+    list.push({
+        id: 'log_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        userId: user.id,
+        name:  user.name  || (user.isAnonymous ? 'Anônimo' : 'Usuário'),
+        email: user.email || '—',
+        sitio: user.sitio || '—',
+        type,
+        timestamp: new Date().toISOString(),
+    });
+    saveLogins(list);
+    renderLoginLog();
+}
+
+function handleAnonymousLogin() {
+    const status = $('#authStatus');
+    currentUser = {
+        id: 'anon_' + Date.now(),
+        name: 'Anônimo',
+        email: null,
+        isAnonymous: true,
+    };
+    Store.saveSession(currentUser);
+    updateUserBadge();
+    logLogin(currentUser, 'anônimo');
+    setTimeout(() => openUserReportModal(), 250);
+    status.innerHTML = '<span style="color:var(--green-light);">Acesso anônimo ativo. Complete seu registro.</span>';
+    setTimeout(() => status.innerHTML = '', 4000);
+}
+
+function handleSignup(e) {
+    e.preventDefault();
+    const name     = $('#signupName').value.trim();
+    const email    = $('#signupEmail').value.trim().toLowerCase();
+    const password = $('#signupPassword').value;
+    const status   = $('#authStatus');
+
+    if (password.length < 6) {
+        status.innerHTML = '<span style="color:var(--danger);">A senha precisa ter ao menos 6 caracteres.</span>';
+        return;
+    }
+    const users = Store.getUsers();
+    if (users.some(u => u.email === email)) {
+        status.innerHTML = '<span style="color:var(--danger);">Este e-mail já está cadastrado.</span>';
+        return;
+    }
+    const user = { id: 'u_' + Date.now(), name, email, password: encodePass(password) };
+    users.push(user);
+    Store.saveUsers(users);
+
+    currentUser = { id: user.id, name: user.name, email: user.email, isAnonymous: false };
+    Store.saveSession(currentUser);
+    updateUserBadge();
+    logLogin(currentUser, 'cadastro');
+    setTimeout(() => openUserReportModal(), 250);
+
+    status.innerHTML = '<span style="color:var(--green-light);">Conta criada! Complete seu registro.</span>';
+    $('#signupForm').reset();
+    setTimeout(() => status.innerHTML = '', 4000);
+}
+
+function handleLogin(e) {
+    e.preventDefault();
+    const email    = $('#loginEmail').value.trim().toLowerCase();
+    const password = $('#loginPassword').value;
+    const status   = $('#authStatus');
+
+    const user = Store.getUsers().find(u => u.email === email && u.password === encodePass(password));
+    if (!user) {
+        status.innerHTML = '<span style="color:var(--danger);">E-mail ou senha incorretos.</span>';
+        return;
+    }
+    currentUser = { id: user.id, name: user.name, email: user.email, isAnonymous: false, sitio: user.sitio };
+    Store.saveSession(currentUser);
+    updateUserBadge();
+    logLogin(currentUser, 'login');
+    setTimeout(() => openUserReportModal(), 250);
+
+    status.innerHTML = '<span style="color:var(--green-light);">Login realizado com sucesso!</span>';
+    $('#loginForm').reset();
+    setTimeout(() => status.innerHTML = '', 4000);
+}
+
+function handleLogout() {
+    Store.clearSession();
+    currentUser = null;
+    updateUserBadge();
+    const status = $('#authStatus');
+    status.innerHTML = '<span style="color:var(--text-secondary);">Você saiu da sua conta.</span>';
+    setTimeout(() => status.innerHTML = '', 3000);
+}
+
+function switchAuthTab(tab, btn) {
+    $$('.auth-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    $$('.auth-form').forEach(f => f.classList.remove('active'));
+    $('#' + (tab === 'login' ? 'loginForm' : 'signupForm')).classList.add('active');
+}
+
+/* ============================================================
+   REGISTRO PÓS-LOGIN
+   ============================================================ */
+function openUserReportModal() {
+    if (!currentUser) return;
+    const existing = getReports().find(r => r.userId === currentUser.id);
+
+    $('#userReportGreeting').textContent = currentUser.name || 'visitante';
+    $('#userReportForm').reset();
+
+    if (existing) {
+        $('#urSitio').value    = existing.sitio        || '';
+        $('#urMotivo').value   = existing.motivo       || '';
+        $('#urTipoLixo').value = existing.tipoLixo     || '';
+        $('#urTempo').value    = existing.tempoLargado || '';
+    }
+    $('#userReportModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeUserReportModal() {
+    $('#userReportModal').classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+function handleUserReportSubmit(e) {
+    e.preventDefault();
+    if (!currentUser) return;
+
+    const sitio        = $('#urSitio').value.trim();
+    const motivo       = $('#urMotivo').value.trim();
+    const tipoLixo     = $('#urTipoLixo').value;
+    const tempoLargado = $('#urTempo').value;
+
+    if (!sitio || !motivo || !tipoLixo || !tempoLargado) {
+        return alert('Preencha todos os campos obrigatórios.');
+    }
+
+    const reports = getReports();
+    const idx = reports.findIndex(r => r.userId === currentUser.id);
+    const entry = {
+        userId: currentUser.id,
+        name:   currentUser.name  || 'Anônimo',
+        email:  currentUser.email || '—',
+        sitio, motivo, tipoLixo, tempoLargado,
+        timestamp: new Date().toISOString(),
+    };
+    if (idx >= 0) reports[idx] = entry;
+    else reports.push(entry);
+    saveReports(reports);
+
+    if (!currentUser.isAnonymous && currentUser.email) {
+        const users = Store.getUsers();
+        const u = users.find(x => x.email === currentUser.email);
+        if (u) { u.sitio = sitio; Store.saveUsers(users); }
+    }
+    currentUser.sitio = sitio;
+    Store.saveSession(currentUser);
+
+    const list = getLogins();
+    list.forEach(l => { if (l.userId === currentUser.id) l.sitio = sitio; });
+    saveLogins(list);
+
+    closeUserReportModal();
+    renderLoginLog();
+    renderUserReports();
+    alert('Registro salvo com sucesso!');
+}
+
+function renderLoginLog() {
+    const el = $('#loginLog');
+    if (!el) return;
+    const logins = getLogins().slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    if (!logins.length) {
+        el.innerHTML = '<p style="color:var(--text-muted);">Nenhum acesso registrado.</p>';
+        return;
+    }
+    let html = `<table class="data-table"><thead><tr>
+        <th>Nome</th><th>E-mail</th><th>Sítio/Bairro</th><th>Tipo</th><th>Data</th>
+    </tr></thead><tbody>`;
+    logins.slice(0, 50).forEach(l => {
+        html += `<tr>
+            <td>${escapeHtml(l.name)}</td>
+            <td>${escapeHtml(l.email)}</td>
+            <td>${escapeHtml(l.sitio)}</td>
+            <td>${escapeHtml(l.type)}</td>
+            <td style="white-space:nowrap;">${new Date(l.timestamp).toLocaleString('pt-BR')}</td>
+        </tr>`;
+    });
+    el.innerHTML = html + '</tbody></table>';
+}
+
+function renderUserReports() {
+    const el = $('#userReports');
+    if (!el) return;
+    const reports = getReports().slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    if (!reports.length) {
+        el.innerHTML = '<p style="color:var(--text-muted);">Nenhum registro ainda.</p>';
+        return;
+    }
+    let html = `<table class="data-table"><thead><tr>
+        <th>Nome</th><th>Sítio/Bairro</th><th>Motivo</th><th>Tipo de lixo</th><th>Tempo largado</th>
+    </tr></thead><tbody>`;
+    reports.forEach(r => {
+        html += `<tr>
+            <td>${escapeHtml(r.name)}</td>
+            <td>${escapeHtml(r.sitio)}</td>
+            <td style="max-width:260px;">${escapeHtml(r.motivo)}</td>
+            <td>${escapeHtml(r.tipoLixo)}</td>
+            <td>${escapeHtml(r.tempoLargado)}</td>
+        </tr>`;
+    });
+    el.innerHTML = html + '</tbody></table>';
+}
+
+/* ============================================================
+   MAPA
+   ============================================================ */
+function setMapStatus(message, isError = false) {
+    const el = $('#mapStatus');
+    if (!el) return;
+    if (!message) { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden');
+    el.classList.toggle('error', isError);
+    el.innerHTML = isError
+        ? `<div style="font-size:2rem">⚠️</div><div>${escapeHtml(message)}</div>`
+        : `<div class="spinner" aria-hidden="true"></div><div>${escapeHtml(message)}</div>`;
+}
+
+function initMap() {
+    if (typeof L === 'undefined' || !L.map) {
+        setMapStatus('Não foi possível carregar a biblioteca de mapas (Leaflet). Verifique sua conexão com a internet ou bloqueadores de anúncio.', true);
+        return;
+    }
+    const container = $('#mainMap');
+    if (!container) return;
+
+    try {
+        map = L.map(container, { zoomControl: true, preferCanvas: true })
+                .setView(PEDRAS_DE_FOGO_CENTER, 12);
+
+        updateMapTiles(htmlEl.getAttribute('data-theme') || 'dark');
+
+        setTimeout(() => map.invalidateSize(), 100);
+        window.addEventListener('load', () => setTimeout(() => map.invalidateSize(), 250));
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(() => { if (map) map.invalidateSize(); }).observe(container);
+        } else {
+            window.addEventListener('resize', () => map && map.invalidateSize());
+        }
+
+        map.on('click', (e) => {
+            setSelectedLocation(e.latlng.lat, e.latlng.lng, false);
+            openRegisterModal();
+        });
+
+        loadAllRegistrationsOnMap();
+        setMapStatus(null);
+    } catch (err) {
+        console.error(err);
+        setMapStatus('Erro ao inicializar o mapa: ' + err.message, true);
+    }
+}
+
+function setSelectedLocation(lat, lng, moveMap = true) {
+    selectedLatLng = { lat, lng };
+    $('#latInput').value = lat.toFixed(6);
+    $('#lngInput').value = lng.toFixed(6);
+    $('#selectedCoords').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+    if (moveMap && map) map.setView([lat, lng], Math.max(map.getZoom(), 15));
+    if (selectedMarker && map) map.removeLayer(selectedMarker);
+
+    if (map && typeof L !== 'undefined') {
+        const icon = L.divIcon({
+            className: '',
+            html: '<div class="selected-marker-indicator">✓</div>',
+            iconSize: [32, 32], iconAnchor: [16, 16],
+        });
+        selectedMarker = L.marker([lat, lng], { icon }).addTo(map);
+        selectedMarker.bindPopup('Local selecionado').openPopup();
+    }
+}
+
+function applyManualCoordinates() {
+    const lat = parseFloat($('#latInput').value);
+    const lng = parseFloat($('#lngInput').value);
+    if (isNaN(lat) || isNaN(lng)) return alert('Por favor, insira coordenadas válidas.');
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return alert('Coordenadas fora do intervalo válido.');
+    setSelectedLocation(lat, lng, true);
+    openRegisterModal();
+}
+
+function loadAllRegistrationsOnMap() {
+    registrations = Store.getRequests();
+    registrations.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    renderMarkers();
+    updateDashboard();
+}
+
+function renderMarkers() {
+    if (!map || typeof L === 'undefined') return;
+    clusterMarkers.forEach(m => { if (map.hasLayer(m)) map.removeLayer(m); });
+    clusterMarkers.length = 0;
+
+    groupRegistrationsByProximity(registrations).forEach(cluster => {
+        const count = cluster.registrations.length;
+        const level = getDemandLevel(count);
+        const color = getDemandColor(level);
+
+        const circle = L.circleMarker(cluster.center, {
+            radius: Math.min(10 + count * 2, 34),
+            color, fillColor: color, fillOpacity: 0.5, weight: 2.5,
+        }).addTo(map);
+
+        circle.bindPopup(`
+            <div style="font-family:Inter,sans-serif; max-width:260px;">
+                <strong style="color:${color};">${escapeHtml(cluster.community)}</strong><br>
+                <span style="font-size:0.85rem;">Solicitações: <strong>${count}</strong></span><br>
+                <span style="font-size:0.85rem;">Demanda: <strong>${level}</strong></span><br>
+                <span style="font-size:0.8rem; color:#888;">Tipos: ${cluster.wasteTypes.map(escapeHtml).join(', ')}</span>
+                ${count >= 6 ? '<br><strong style="color:#ef5350;">⚠ Alta demanda!</strong>' : ''}
+            </div>`);
+        clusterMarkers.push(circle);
+    });
+}
+
+function groupRegistrationsByProximity(regs) {
+    const clusters = [], used = new Set();
+    regs.forEach((reg, idx) => {
+        if (used.has(idx)) return;
+        const cluster = {
+            registrations: [reg],
+            center: { lat: reg.latitude, lng: reg.longitude },
+            community: reg.community_name,
+            wasteTypes: [reg.waste_type],
+        };
+        used.add(idx);
+        regs.forEach((r2, i2) => {
+            if (used.has(i2)) return;
+            if (r2.community_name !== reg.community_name) return;
+            if (getDistanceMeters(reg.latitude, reg.longitude, r2.latitude, r2.longitude) <= CLUSTER_RADIUS_METERS) {
+                cluster.registrations.push(r2);
+                cluster.wasteTypes.push(r2.waste_type);
+                cluster.center.lat = (cluster.center.lat + r2.latitude) / 2;
+                cluster.center.lng = (cluster.center.lng + r2.longitude) / 2;
+                used.add(i2);
+            }
+        });
+        cluster.wasteTypes = [...new Set(cluster.wasteTypes)];
+        clusters.push(cluster);
+    });
+    return clusters.sort((a, b) => b.registrations.length - a.registrations.length);
+}
+
+function getDistanceMeters(lat1, lng1, lat2, lng2) {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const getDemandLevel = (c) => c <= 2 ? 'Baixa' : c <= 5 ? 'Média' : 'Alta';
+const getDemandColor = (l) => l === 'Baixa' ? '#4caf50' : l === 'Média' ? '#ffb74d' : '#ef5350';
+
+function useGPSToLocate() {
+    if (!navigator.geolocation) return alert('Seu navegador não suporta geolocalização.');
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            const { latitude: lat, longitude: lng } = pos.coords;
+            if (map && typeof L !== 'undefined') {
+                map.setView([lat, lng], 15);
+                if (userMarker) map.removeLayer(userMarker);
+                const icon = L.divIcon({
+                    className: '',
+                    html: '<div class="user-marker-indicator">●</div>',
+                    iconSize: [30, 30], iconAnchor: [15, 15],
+                });
+                userMarker = L.marker([lat, lng], { icon }).addTo(map).bindPopup('Você está aqui').openPopup();
+                setSelectedLocation(lat, lng, false);
+            }
+        },
+        () => alert('Não foi possível obter sua localização. Verifique as permissões.'),
+        { enableHighAccuracy: true, timeout: 10000 }
+    );
+}
+
+/* ============================================================
+   MODAL DE REGISTRO NO MAPA
+   ============================================================ */
+function openRegisterModal() {
+    if (!currentUser) {
+        alert('Faça login ou entre anonimamente para registrar.');
+        $('#auth').scrollIntoView({ behavior: 'smooth' });
+        return;
+    }
+    if (!selectedLatLng) {
+        alert('Selecione um local no mapa, digite coordenadas ou use o GPS antes de registrar.');
+        return;
+    }
+    $('#registerModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+function closeRegisterModal() {
+    $('#registerModal').classList.remove('active');
+    document.body.style.overflow = '';
+}
+$('#registerModal').addEventListener('click', function (e) {
+    if (e.target === this) closeRegisterModal();
+});
+$('#userReportModal').addEventListener('click', function (e) {
+    if (e.target === this) closeUserReportModal();
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeRegisterModal(); closeUserReportModal(); }
+});
+
+function handleRegisterSubmit(e) {
+    e.preventDefault();
+    if (!currentUser) return alert('Faça login ou entre anonimamente.');
+    if (!selectedLatLng) return alert('Selecione um local.');
+
+    const community   = $('#communityName').value.trim();
+    const wasteType   = $('#wasteType').value;
+    const quantity    = $('#quantity').value;
+    const description = $('#description').value.trim();
+
+    if (!community || !wasteType || !quantity) return alert('Preencha os campos obrigatórios.');
+
+    const requests = Store.getRequests();
+    requests.push({
+        id: 'r_' + Date.now(),
+        user_id: currentUser.id,
+        is_anonymous: !!currentUser.isAnonymous,
+        community_name: community,
+        latitude: selectedLatLng.lat,
+        longitude: selectedLatLng.lng,
+        waste_type: wasteType,
+        quantity,
+        description: description || null,
+        created_at: new Date().toISOString(),
+    });
+    Store.saveRequests(requests);
+
+    $('#registerForm').reset();
+    if (selectedMarker && map) { map.removeLayer(selectedMarker); selectedMarker = null; }
+    selectedLatLng = null;
+    $('#selectedCoords').textContent = 'Nenhum local selecionado';
+    $('#latInput').value = '';
+    $('#lngInput').value = '';
+    closeRegisterModal();
+    loadAllRegistrationsOnMap();
+    alert('Necessidade registrada com sucesso!');
+}
+
+/* ============================================================
+   PAINEL DE DADOS
+   ============================================================ */
+function updateDashboard() {
+    const total = registrations.length;
+    const communities = new Set(registrations.map(r => r.community_name));
+    const clusters = groupRegistrationsByProximity(registrations);
+
+    $('#statTotal').textContent = total;
+    $('#statCommunities').textContent = communities.size;
+    $('#statMediumDemand').textContent = clusters.filter(c => c.registrations.length >= 3 && c.registrations.length <= 5).length;
+    $('#statHighDemand').textContent = clusters.filter(c => c.registrations.length >= 6).length;
+
+    const communityList = $('#communityList');
+    communityList.innerHTML = clusters.length
+        ? clusters.slice(0, 8).map(c => {
+            const level = getDemandLevel(c.registrations.length);
+            const cls = level === 'Alta' ? 'count-high' : level === 'Média' ? 'count-medium' : 'count-low';
+            return `<li><span class="community-name">${escapeHtml(c.community)}</span><span class="community-count ${cls}">${c.registrations.length} solicitações</span></li>`;
+        }).join('')
+        : '<li style="text-align:center; color:var(--text-muted);">Nenhum registro ainda.</li>';
+
+    const typeCounts = {};
+    registrations.forEach(r => { typeCounts[r.waste_type] = (typeCounts[r.waste_type] || 0) + 1; });
+    const sortedTypes = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]);
+    $('#wasteTypeList').innerHTML = sortedTypes.length
+        ? sortedTypes.slice(0, 8).map(([t, n]) => `<li><span class="community-name">${escapeHtml(t)}</span><span class="community-count count-low">${n}</span></li>`).join('')
+        : '<li style="text-align:center; color:var(--text-muted);">Nenhum registro ainda.</li>';
+
+    let alertsHTML = '';
+    clusters.forEach(c => {
+        if (c.registrations.length >= 6)
+            alertsHTML += `<div class="alert-banner alert-high"><strong>Alerta:</strong> Alta demanda em ${escapeHtml(c.community)} (${c.registrations.length} solicitações).</div>`;
+        else if (c.registrations.length >= 3)
+            alertsHTML += `<div class="alert-banner alert-medium"><strong>Atenção:</strong> Média demanda em ${escapeHtml(c.community)} (${c.registrations.length} solicitações).</div>`;
+    });
+    $('#alertsContainer').innerHTML = alertsHTML ||
+        '<div class="alert-banner alert-info"><strong>Info:</strong> Nenhuma alta demanda identificada.</div>';
+
+    const recent = registrations.slice(0, 10);
+    const rEl = $('#recentRequests');
+    if (recent.length) {
+        let html = `<table class="data-table"><thead><tr>
+            <th>Data</th><th>Comunidade</th><th>Tipo</th><th>Quantidade</th>
+        </tr></thead><tbody>`;
+        recent.forEach(r => {
+            html += `<tr>
+                <td>${new Date(r.created_at).toLocaleDateString('pt-BR')}</td>
+                <td>${escapeHtml(r.community_name)}</td>
+                <td>${escapeHtml(r.waste_type)}</td>
+                <td>${escapeHtml(r.quantity)}</td>
+            </tr>`;
+        });
+        rEl.innerHTML = html + '</tbody></table>';
+    } else {
+        rEl.innerHTML = '<p style="color:var(--text-muted);">Nenhuma solicitação registrada.</p>';
+    }
+}
+
+/* ============================================================
+   BOOTSTRAP
+   ============================================================ */
+function bootstrap() {
+    loadSession();
+    updateActiveNav();
+    renderLoginLog();
+    renderUserReports();
+
+    if (window.__leafletReady || typeof L !== 'undefined') {
+        initMap();
+    } else if (window.__leafletFailed) {
+        initMap();
+    } else {
+        document.addEventListener('leaflet:ready', initMap, { once: true });
+        document.addEventListener('leaflet:failed', () => {
+            setMapStatus('Não foi possível carregar a biblioteca de mapas (Leaflet). Verifique sua conexão ou bloqueadores.', true);
+        }, { once: true });
+        setTimeout(() => {
+            if (!window.__leafletReady && !window.__leafletFailed) {
+                setMapStatus('Tempo esgotado ao carregar o mapa. Verifique sua conexão com a internet.', true);
+            }
+        }, 8000);
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrap);
+} else {
+    bootstrap();
+}
+
+/* ============================================================
+   EXPOR FUNÇÕES PARA O HTML
+   ============================================================ */
+Object.assign(window, {
+    openRegisterModal, closeRegisterModal, handleRegisterSubmit,
+    useGPSToLocate, closeMobileMenu, switchAuthTab,
+    handleLogin, handleSignup, handleAnonymousLogin, handleLogout,
+    applyManualCoordinates,
+    openUserReportModal, closeUserReportModal, handleUserReportSubmit,
+});
+</script>
+</body>
+</html>
